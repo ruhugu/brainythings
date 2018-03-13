@@ -58,10 +58,22 @@ class HHNeuron(Neuron):
 
 
     # Channel activation function time constant
-    def chactiv_timeconst(V, alpha, beta):
+    def _chanactiv_timeconst(V, alpha, beta):
         return 1./(alpha(V) + beta(V)
-        
-    def chactiv_diffrhs(V, alpha, beta):
+
+                
+    #FIX
+    def _chanactiv_diffrhs(V, alpha, beta):
         return 1./(alpha(V) + beta(V)
-        
+    
+            chanactiv_timeconst = {
+                "m": lambda V: self.chanactiv_timeconst(V, self.alpha_m, self.beta_m),
+                "h": lambda V: self.chanactiv_timeconst(V, self.alpha_h, self.beta_h),
+                "n": lambda V: self.chanactiv_timeconst(V, self.alpha_n, self.beta_n)}
+    
+            chanactiv_diffrhs = {
+                "m": lambda V: self.chanactiv_diffrhs(V, self.alpha_m, self.beta_m),
+                "h": lambda V: self.chanactiv_diffrhs(V, self.alpha_h, self.beta_h),
+                "n": lambda V: self.chanactiv_diffrhs(V, self.alpha_n, self.beta_n)}
+    
         
