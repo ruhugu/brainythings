@@ -1,16 +1,23 @@
 #-*- coding: utf-8 -*-
 from __future__ import (print_function, division, 
                         absolute_import, unicode_literals)
-
 import numpy as np
+from scipy import integrate as spint
 from matplotlib import pyplot as plt
 from matplotlib import colors as colors
-from matplotlib import animation
+#from matplotlib import animation
 
-class Neuron(class):  
 
-    def __init__(self, g_leak=0.3, g_K=36, g_Na=120, V_leak=-54.402,
-                 V_K=-77, V_Na=50):
+class Neuron(object):  
+    """Base neuron class.
+
+    """
+    def __init__(self, I_ampl=10., I_duration=100., g_leak=0.3, 
+                 g_K=36., g_Na=120., V_leak=-54.402, V_K=-77., V_Na=50.):
+
+        # External current parameters (microA/cm2)
+        self.I_ampl = I_ampl
+        self.I_duration = I_duration
 
         # Conductances (mS/cm2)
         self.g_leak = g_leak  # Leakage 
@@ -22,12 +29,88 @@ class Neuron(class):
         self.V_K = V_K
         self.V_Na = V_Na
 
+        # Membrane capacity (microF/cm2)
+        self.C = 1
+
+
+
+    def I_ext(self, t):
+        """External current function.
+
+        """
+        if t < self.I_duration:
+            I = self.I_ampl
+        else:
+            I = 0
+
+        return I
+        #return 10*(t>100) - 10*(t>200) + 35*(t>300)
+
+
+    def singleplot(self, y, label=None, figsize=3):
+        """Plot varible y against time.
+
+        """
+        fig, ax = plt.subplots(figsize=(1.62*figsize, figsize))
+
+        ax.plot(self.ts, y)
+        ax.set_xlabel("Time (ms)")
+
+        if label != None:
+            ax.set_ylabel(label)
+
+        fig.tight_layout()
+
+        return fig
+
+
 
 class HHNeuron(Neuron):
+    def __init__(self, I_ampl=10., I_duration=100., V_0=-65.,
+                 m_0=None, n_0=None, h_0=None, neurondict=dict()):
+        Neuron.__init__(self, I_ampl=I_ampl, I_duration=I_duration, 
+                        **neurondict)
 
-    def __init__(self, neurondict=dict()):
+        # Note: Currents are given in microA/cm2, times in ms
+        self.V_0 = V_0
 
-        Neuron.__init__(self, **neurondict)
+        # Dictionaries with the corresponding functions for m, n and h
+        self.ch_timeconst = {
+                "m": (lambda V: self._ch_timeconst(V, self.alpha_m,
+                                                          self.beta_m)),
+                "h": (lambda V: self._ch_timeconst(V, self.alpha_h,
+                                                          self.beta_h)),
+                "n": (lambda V: self._ch_timeconst(V, self.alpha_n,
+                                                          self.beta_n))}
+        self.ch_asymp = {
+                "m": (lambda V: self._ch_asymp(V, self.alpha_m,
+                                                      self.beta_m)),
+                "h": (lambda V: self._ch_asymp(V, self.alpha_h,
+                                                      self.beta_h)),
+                "n": (lambda V: self._ch_asymp(V, self.alpha_n,
+                                                      self.beta_n))}
+        self.chactiv_ddt = {
+                "m": (lambda V, m: self._chactiv_ddt(V, m,
+                                                    self.alpha_m, self.beta_m)),
+                "h": (lambda V, h: self._chactiv_ddt(V, h, self.alpha_h,
+                                                    self.beta_h)),
+                "n": (lambda V, n: self._chactiv_ddt(V, n, self.alpha_n,
+                                                    self.beta_n))}  
+
+        # Initialize the channel activation functions to their 
+        # saturation value
+        if m_0 == None:
+            self.m_0 = 0.05 #self.ch_asymp["m"](self.V_0)
+        else:
+            self.m_0 = m_0
+        if n_0 == None:
+            self.n_0 = 0.32 #self.ch_asymp["n"](self.V_0)
+        else:
+            self.n_0 = n_0
+        if h_0 == None:
+            self.h_0 = 0.6 #self.ch_asymp["h"](self.V_0)
+        else:
+            self.h_0 = h_0
 
 
     # Experimental data for potassium channels
@@ -49,31 +132,121 @@ class HHNeuron(Neuron):
         return alpha
 
     def beta_m(self, V):
-        beta = 4.*np.exp(-0.0556*(V + 60.)) 
+        beta = 4.*np.exp(-0.0556*(V + 65.)) 
         return beta
 
     def beta_h(self, V):
         beta = 1./(1 + np.exp(-0.1*(V + 35.)))
         return beta
 
+    # Functions
+    def _ch_timeconst(self, V, alpha, beta):
+        """Channel activation function time constant.
 
-    # Channel activation function time constant
-    def _chanactiv_timeconst(V, alpha, beta):
-        return 1./(alpha(V) + beta(V)
+        """
+        return 1./(alpha(V) + beta(V))
 
-                
-    #FIX
-    def _chanactiv_diffrhs(V, alpha, beta):
-        return 1./(alpha(V) + beta(V)
-    
-            chanactiv_timeconst = {
-                "m": lambda V: self.chanactiv_timeconst(V, self.alpha_m, self.beta_m),
-                "h": lambda V: self.chanactiv_timeconst(V, self.alpha_h, self.beta_h),
-                "n": lambda V: self.chanactiv_timeconst(V, self.alpha_n, self.beta_n)}
-    
-            chanactiv_diffrhs = {
-                "m": lambda V: self.chanactiv_diffrhs(V, self.alpha_m, self.beta_m),
-                "h": lambda V: self.chanactiv_diffrhs(V, self.alpha_h, self.beta_h),
-                "n": lambda V: self.chanactiv_diffrhs(V, self.alpha_n, self.beta_n)}
-    
+    def _ch_asymp(self, V, alpha, beta):
+        """Asymptotic value of channel activation function.
+
+        """
+        return alpha(V)/(alpha(V) + beta(V))
+
+    def _chactiv_ddt(self, V, chactiv, alpha, beta):
+        """Time derivative of the chan. activation function.
+
+        """
+#        timederivative = (self._ch_asymp(V, alpha, beta) 
+#                - chactiv)/self._ch_timeconst(V, alpha, beta)
+        timederivative = alpha(V)*(1. - chactiv) - beta(V)*chactiv
+        return timederivative
+
+    def ioncurrent(self, V, m, h, n):
+        """Current due to the conduction of ions through the membrane channels.
         
+        """
+#        current = (self.g_leak*(V - self.V_leak) 
+#                    + self.g_K*(n**4)*(V - self.V_K)
+#                    + self.g_Na*h*(m**3)*(V - self.V_Na))
+        current = self.I_leak(V) + self.I_K(V, n) + self.I_Na(V, h, m)
+        return current
+
+    def I_leak(self, V):
+        """Leakeage current.
+
+        """
+        current = self.g_leak*(V - self.V_leak) 
+        return current
+
+    def I_K(self, V, n):
+        """Ion current through potassium channels.
+
+        """
+        current = self.g_K*np.power(n, 4)*(V - self.V_K)
+        return current
+        
+    def I_Na(self, V, h, m):
+        """Ion current through sodium channels.
+
+        """
+        current = self.g_Na*h*np.power(m, 3)*(V - self.V_Na)
+        return current
+
+    def V_ddt(self, V, I_ext, m, h, n):
+        """Time derivative of the membrane potential.
+        
+        """
+        timederivative = (-self.ioncurrent(V, m, h, n) + I_ext)/self.C
+        return timederivative
+        
+    def _rhs(self, y, t):
+        """Right hand side of the system of equations to be solved.
+
+        This functions is necessary to use scipy integrate.
+
+        Parameters
+        ----------
+            y : array
+                Array with the present state of the variables 
+                which time derivative is to be solved: 
+                (V, m, h, n)
+
+            t : float
+                Time variable.  
+
+        Returns
+        -------
+            timederivatives : array
+                Array with the time derivatives of the variables
+                in the same order as y.
+            
+        """
+        V = y[0]
+        m = y[1]
+        h = y[2]
+        n = y[3]
+        output = np.array((self.V_ddt(V, self.I_ext(t), m, h, n),
+                           self.chactiv_ddt["m"](V, m),
+                           self.chactiv_ddt["h"](V, h),
+                           self.chactiv_ddt["n"](V, n)))
+        return output
+
+
+    def solve(self, ts=None):
+        """Integrate the differential equations of the system.
+
+        """
+        # Simulation times
+        if ts is None:
+            self.ts = np.linspace(0, 200, 300)
+        else:
+            self.ts = ts
+
+        y0 = np.array((self.V_0, self.m_0, self.h_0, self.n_0))
+        sol = spint.odeint(self._rhs, y0, self.ts)
+        self.Vs = sol[:,0]
+        self.ms = sol[:,1]
+        self.hs = sol[:,2]
+        self.ns = sol[:,3]
+
+        return
