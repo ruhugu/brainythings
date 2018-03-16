@@ -10,16 +10,16 @@ from brainythings import *
 # Parameters
 I_value_duration = 100  # Time the current spends at a certain value
 relaxtime = 50  # Wait time between different I values as a fraction of I_dur
-I_values = np.linspace(10, 3000, 6)  # Values that the current takes 
+I_values = np.linspace(0, 10, 5)  # Values that the current takes 
 figylen = 3.5
 figxlen = 1.8*figylen
 
 cycletime = relaxtime + I_value_duration
-ts = np.linspace(0, cycletime*I_values.size, 1000)  # Measure times in
+ts = np.linspace(0, cycletime*I_values.size, 10000)  # Measure times in
 
 
 # Create the external current function
-def I_ext(t, I_values, I_value_duration, relaxtime):
+def I_ext(t, I_values, I_value_duration):
     """External current function.
 
     """
@@ -30,7 +30,7 @@ def I_ext(t, I_values, I_value_duration, relaxtime):
     while (t > intervallim) and (I_idx < I_values.size):
         I_idx += 1
         intervallim = (I_idx + 1.)*cycletime
-    if (I_idx < I_values.size) and (intervallim - t > relaxtime):
+    if (I_idx < I_values.size) and (intervallim - t < I_value_duration):
         I = I_values[I_idx]
     else:
         I = 0.
@@ -38,7 +38,7 @@ def I_ext(t, I_values, I_value_duration, relaxtime):
 
 # Create the neuron and solve
 neuron = HHNeuron()
-neuron.I_ext = lambda t: I_ext(t, I_values, I_value_duration, relaxtime)
+neuron.I_ext = lambda t: I_ext(t, I_values, I_value_duration)
 neuron.solve(ts=ts)
 
 # Calculate the current at each time for the plot
@@ -61,4 +61,4 @@ fig.tight_layout()
 plt.show()
 
 # Save the figure to file (this does not work when plt.show() has been used)
-#fig.savefig("Irange{0}-{1}.png".format(I_values[0], I_values[-1]), dpi=150)
+#fig.savefig("Itrain{0}-{1}.png".format(I_values[0], I_values[-1]), dpi=150)
