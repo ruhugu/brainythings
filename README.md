@@ -9,7 +9,7 @@ This modules requires both [matplotlib](https://matplotlib.org/) and [numpy](htt
 
 ## Some output examples
 
-Membrane potential of a Hodgkin-Huxley neuron under a pulse train current of increasing amplitude.
+Membrane potential of a Hodgkin-Huxley neuron under a pulse train current of increasing amplitude ([script](https://github.com/ruhugu/brainythings/blob/master/scripts/trainI.py)).
 
 <img src="https://raw.githubusercontent.com/ruhugu/brainythings/master/output_examples/Itrain0.0-10.0_HH.png" alt="Drawing" width="600"/>
 
