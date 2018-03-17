@@ -1,6 +1,6 @@
 # brainythings
  
-Python implementation of several neuron models. Right now the only avaiable one is the [Hodgkin-Huxley model](https://en.wikipedia.org/wiki/Hodgkin%E2%80%93Huxley_model).
+Python implementation of several neuron models. Right now the implemented one are the [Hodgkin-Huxley model](https://en.wikipedia.org/wiki/Hodgkin%E2%80%93Huxley_model) and  the [FitzHugh-Nagumo model](http://www.scholarpedia.org/article/FitzHugh-Nagumo_model).
 
 ## Required packages
 
