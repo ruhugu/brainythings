@@ -45,12 +45,12 @@ neuron.solve(ts=ts)
 Is = np.array([neuron.I_ext(t) for t in neuron.ts])
  
 # Plot the results
-fig = plt.figure(figsize = (figxlen, figylen))
+fig = plt.figure(figsize=(figxlen, figylen))
 ax_V = fig.add_subplot(211)
 ax_I = fig.add_subplot(212, sharex=ax_V)
-ax_V.set_ylabel("V (mV)")
-ax_I.set_xlabel("Time (ms)")
-ax_I.set_ylabel("I (microA)")
+ax_V.set_ylabel("V {0}".format(neuron.V_unit))
+ax_I.set_xlabel("Time {0}".format(neuron.time_unit))
+ax_I.set_ylabel("I {0}".format(neuron.I_unit))
 
 ax_V.plot(neuron.ts, neuron.Vs)
 ax_I.plot(neuron.ts, Is)

@@ -12,12 +12,11 @@ class Neuron(object):
     """Base neuron class.
 
     """
-    def __init__(self, I_ampl=10., I_duration=100., g_leak=0.3, 
+    def __init__(self, I_ampl=10., g_leak=0.3, 
                  g_K=36., g_Na=120., V_leak=-54.402, V_K=-77., V_Na=50.):
 
         # External current parameters (microA/cm2)
         self.I_ampl = I_ampl
-        self.I_duration = I_duration
 
         # Conductances (mS/cm2)
         self.g_leak = g_leak  # Leakage 
@@ -32,19 +31,18 @@ class Neuron(object):
         # Membrane capacity (microF/cm2)
         self.C = 1
 
+        # Units
+        self.I_unit = "(microA/cm2)"
+        self.time_unit = "(ms)"
+        self.V_unit = "(mV)"
 
 
     def I_ext(self, t):
         """External current function.
 
         """
-        if t < self.I_duration:
-            I = self.I_ampl
-        else:
-            I = 0
-
-        return I
-        #return 10*(t>100) - 10*(t>200) + 35*(t>300)
+        # Use np.ones() to accept arrays as input
+        return self.I_ampl*np.ones(np.array(t).shape)
 
 
     def singleplot(self, y, label=None, figsize=3):
@@ -54,7 +52,7 @@ class Neuron(object):
         fig, ax = plt.subplots(figsize=(1.62*figsize, figsize))
 
         ax.plot(self.ts, y)
-        ax.set_xlabel("Time (ms)")
+        ax.set_xlabel("Time {0}".format(self.time_unit))
 
         if label != None:
             ax.set_ylabel(label)
@@ -66,10 +64,9 @@ class Neuron(object):
 
 
 class HHNeuron(Neuron):
-    def __init__(self, I_ampl=10., I_duration=100., V_0=-65.,
+    def __init__(self, I_ampl=10., V_0=-65.,
                  m_0=None, n_0=None, h_0=None, neurondict=dict()):
-        Neuron.__init__(self, I_ampl=I_ampl, I_duration=I_duration, 
-                        **neurondict)
+        Neuron.__init__(self, I_ampl=I_ampl, **neurondict)
 
         # Note: Currents are given in microA/cm2, times in ms
         self.V_0 = V_0
@@ -156,9 +153,9 @@ class HHNeuron(Neuron):
         """Time derivative of the chan. activation function.
 
         """
-#        timederivative = (self._ch_asymp(V, alpha, beta) 
-#                - chactiv)/self._ch_timeconst(V, alpha, beta)
-        timederivative = alpha(V)*(1. - chactiv) - beta(V)*chactiv
+        timederivative = (self._ch_asymp(V, alpha, beta) 
+                - chactiv)/self._ch_timeconst(V, alpha, beta)
+#        timederivative = alpha(V)*(1. - chactiv) - beta(V)*chactiv
         return timederivative
 
     def ioncurrent(self, V, m, h, n):
@@ -248,5 +245,116 @@ class HHNeuron(Neuron):
         self.ms = sol[:,1]
         self.hs = sol[:,2]
         self.ns = sol[:,3]
+
+        return
+
+
+class FNNeuron(Neuron):
+    """FitzHugh-Naguno neuron.
+
+    The units in this model are different from the HH ones.
+
+    Sources:
+    https://en.wikipedia.org/w/index.php?title=FitzHugh%E2%80%93Nagumo_model&oldid=828788626
+    http://www.scholarpedia.org/article/FitzHugh-Nagumo_model
+
+    """
+    def __init__(self, I_ampl=0.85, V_0=-0.7, W_0 =-0.5, a=0.7, b=0.8,
+                 tau=12.5, neurondict=dict()):
+        Neuron.__init__(self, I_ampl=I_ampl, **neurondict)
+
+        # Store intial conditions
+        self.V_0 = V_0
+        self.W_0 = W_0
+
+        # Store model parameters
+        self.a = a
+        self.b = b
+        self.tau = tau
+
+        # Units
+        self.time_unit = ""
+        self.V_unit = ""
+        self.I_unit = ""
+
+        
+    def V_ddt(self, V, W, I_ext):
+        """Time derivative of the potential V.
+
+        """
+        timederivative = V - np.power(V, 3)/3. - W + I_ext
+        return timederivative
+
+    def W_ddt(self, V, W):
+        """Time derivative of the recovery variable W.
+
+        """
+        timederivative = (V + self.a - self.b*W)/self.tau
+        return timederivative
+
+    def W_nullcline(self, V):
+        """W value as a function of V in the W nullcline.
+
+        Note: the W nullcline is the curve where the time derivative
+        of W is zero.
+        
+        """
+        return (V + self.a)/self.b
+
+    def V_nullcline(self, V, I):
+        """W value as a function of V in the V nullcline.
+        
+        Note: the V nullcline is the curve where the time derivative
+        of V is zero.
+        """
+        return V - np.power(V, 3)/3. + I
+
+        
+    def _rhs(self, y, t):
+        """Right hand side of the system of equations to be solved.
+
+        This functions is necessary to use scipy integrate.
+
+        Parameters
+        ----------
+            y : array
+                Array with the present state of the variables 
+                which time derivative is to be solved: 
+                (V, W)
+
+            t : float
+                Time variable.  
+
+        Returns
+        -------
+            timederivatives : array
+                Array with the time derivatives of the variables
+                in the same order as y.
+            
+        """
+        V = y[0]
+        W = y[1]
+        output = np.array((self.V_ddt(V, W, self.I_ext(t)),
+                           self.W_ddt(V, W)))
+        return output
+
+
+    def solve(self, ts=None):
+        """Integrate the differential equations of the system.
+
+        """
+        # Simulation times
+        if ts is None:
+            self.ts = np.linspace(0, 1000, 1000)
+        else:
+            self.ts = ts
+
+        y0 = np.array((self.V_0, self.W_0))
+        sol = spint.odeint(self._rhs, y0, self.ts)
+        # solve_ivp returns a lot of extra information about the solutions, but 
+        # we are only interested in the values of the variables, which are stored
+        # in sol.y
+        self.Vs = sol[:,0]
+        self.Ws = sol[:,1]
 
         return
