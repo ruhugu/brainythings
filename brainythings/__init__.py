@@ -1,1 +1,1 @@
-from .brainythings import *
+from .neurons import *
