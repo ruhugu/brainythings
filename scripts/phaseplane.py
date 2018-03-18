@@ -10,20 +10,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from brainythings import *
 
 # Parameters
-I_ampl = 0.85
+I_ampl = 0.324175
 tmax = 100.
+V_0 = -0.6
+W_0 = -0.4
 
 figylen = 3
-figxlen = 1.8*figylen
+figxlen = 2*figylen
 fps = 20.
-animspeed = 6.
+animspeed = 18.
 traj_color = "C0"  # Color of trajectory in phase plane
 plot_color = "C1"
 
 
 # Create neuron and calculate trajectory
 ts, t_step = np.linspace(0, tmax, 100*tmax, retstep=True)
-neuron = FNNeuron(I_ampl=I_ampl)
+neuron = FNNeuron(I_ampl=I_ampl, V_0=V_0, W_0=W_0)
 neuron.solve(ts=ts)
 
 # Range of V to be plotted
@@ -35,7 +37,7 @@ Vs = np.linspace(Vs_range[0], Vs_range[1], 300)
 
 # Calculate the nullclines
 Ws_Wnull = neuron.W_nullcline(Vs)
-Ws_Vnull = neuron.V_nullcline(Vs, I_ampl)
+Ws_Vnull = neuron.V_nullcline(Vs, neuron.I_ext(ts[0]))
 
 
 # Auxiliar function for the plot
@@ -54,7 +56,6 @@ def darken(color, val):
     return newhex
 
 
-
 # Create figures and axes
 fig = plt.figure(figsize = (figxlen, figylen))
 ax_phase = fig.add_subplot(121) 
@@ -68,9 +69,10 @@ ax_I.set_xlabel("Time")
 ax_I.set_ylabel("I")
 
 # Initialize plot
-ax_phase.plot(Vs, Ws_Wnull, linestyle="--", color="gray", 
-              label="W nullcline")
-ax_phase.plot(Vs, Ws_Vnull, linestyle="-.", color="gray", label="V nullcline")
+plot_Wnull, = ax_phase.plot(Vs, Ws_Wnull, linestyle="--", color="gray", 
+                           label="W nullcline")
+plot_Vnull, = ax_phase.plot(Vs, Ws_Vnull, linestyle="-.", color="gray",
+                           label="V nullcline")
 
 ax_I.plot(ts, neuron.I_ext(ts), color="black", visible=False)
 plot_phase, = ax_phase.plot(neuron.Vs[:1], neuron.Ws[:1], color=traj_color)
@@ -83,19 +85,26 @@ ax_phase.legend()
 fig.tight_layout()
 
 # Create the animation
-def update(i_anim, stepsperframe, ts, neuron, plot_phase, plot_phasedot,
-           plot_V, plot_I):
+def update(i_anim, stepsperframe, ts, Vs, neuron, plot_phase, plot_phasedot,
+           plot_V, plot_I, plot_Wnull, plot_Vnull):
     """Update function for the animation.
 
     """
     i = i_anim*stepsperframe
-    # Update
+
+    # Recalculate
+    Ws_Wnull = neuron.W_nullcline(Vs)
+    Ws_Vnull = neuron.V_nullcline(Vs, neuron.I_ext(ts[i-1]))
+
+    # Update plot
     plot_phase.set_data(neuron.Vs[:i], neuron.Ws[:i])
     plot_phasedot.set_data(neuron.Vs[i-1:i], neuron.Ws[i-1:i])
+    plot_Wnull.set_data(Vs, Ws_Wnull)
+    plot_Vnull.set_data(Vs, Ws_Vnull)
     plot_V.set_data(ts[:i], neuron.Vs[:i])
     plot_I.set_data(ts[:i], neuron.I_ext(ts[:i]))
 
-    return plot_phase, plot_phasedot, plot_V, plot_I
+    return plot_phase, plot_phasedot, plot_V, plot_I, plot_Wnull, plot_Vnull
 
 points_per_second = int(animspeed/t_step)
 points_per_frame = int(points_per_second/fps)
@@ -104,17 +113,17 @@ nframes = int(ts.size/points_per_frame)
 
 anim = animation.FuncAnimation(fig, update, frames=nframes,
                                interval=anim_interval, blit=True,
-                               fargs=(points_per_frame, ts, neuron,
+                               fargs=(points_per_frame, ts, Vs, neuron,
                                plot_phase, plot_phasedot, plot_V, 
-                               plot_I))
+                               plot_I, plot_Wnull, plot_Vnull))
 # Show plot
 plt.show()
 
 # Save the animation to file (this does not work when plt.show()
 # has been used before)
 # As mp4
-#anim.save("phaseplaneI{0}_FN.mp4".format(I_ampl), dpi=100,
+#anim.save("phaseplaneI{0}_FN.mp4".format(I_ampl), dpi=200,
 #        extra_args=['-vcodec', 'libx264'])
 # As GIF (imagemagick must be installed)
-#anim.save("phaseplaneI{0}_FN.gif".format(I_ampl), dpi=100,
+#anim.save("phaseplaneI{0}_FN.gif".format(I_ampl), dpi=150,
 #          writer='imagemagick')
