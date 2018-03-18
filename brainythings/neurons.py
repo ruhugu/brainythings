@@ -358,3 +358,126 @@ class FNNeuron(Neuron):
         self.Ws = sol[:,1]
 
         return
+
+
+# TODO: RENDIRSE Y APLICAR EULER
+class IFlinNeuron(Neuron):
+    """Linear integrate-and-fire neuron.
+
+    """
+    def __init__(self, I_ampl=10, V_0=-80, R=0.8, Vthr=-68.5,
+                 neurondict=dict()):
+        Neuron.__init__(self, I_ampl=I_ampl, **neurondict)
+
+        # Store initial condition
+        self.V_0 = V_0
+
+        # Store parameters
+        self.R = R  # kohmn/cm2
+        self.Vthr = Vthr  # Fire threshold
+
+
+    def V_ddt(self, V, I_ext):
+        """Time derivative of the membrane potential.
+
+        """
+        timederivative = (-(V + 65)/self.R + I_ext)/self.C
+        return timederivative
+
+
+    def _thresholddiff(self, t, V):
+        """Difference between the membrane potential and the fire threshold.
+
+        This is used as an auxiliary function in the solver to 
+        find when the pulse starts.
+
+        """
+        diff = V - self.Vthr
+        return diff
+
+
+    def _rhs(self, t, y):
+        """Right hand side of the system of equations to be solved.
+
+        This functions is necessary to use scipy.integrate.
+
+        Parameters
+        ----------
+            y : float
+                Array with the present state of the variable
+                which time derivative is to be solved, V.
+
+            t : float
+                Time variable.  
+
+        Returns
+        -------
+            timederivative : float
+                Time derivatives of the variable.
+            
+        """
+        V = y
+        output = self.V_ddt(V, self.I_ext(t))
+        return output
+
+    def solve(self, ts=None):
+        """Integrate the differential equations of the system.
+
+        """
+        if ts is None:
+            self.ts = np.linspace(0, 100, 400)
+        else:
+            self.ts = ts
+
+        # Empty array to store the results
+        self.Vs = np.zeros(ts.size)
+
+        # Initial value
+        y0 = np.array((self.V_0,))
+
+        def thresholddiff(t, V):
+            """Difference between the potential and the fire threshold.
+
+            This is used as an auxiliary function in the solver to 
+            find when the pulse starts
+
+            """
+            diff = self.Vthr - V
+            return diff
+        thresholddiff.terminal = True
+
+        sol = spint.solve_ivp(self._rhs, (ts[0], ts[-1]), y0,
+                              events=thresholddiff, dense_output=True)
+
+        # Index in ts of next point to be calculated
+        next_idx = 0
+
+        # Store the calculated points
+        npoints = sol.t.size
+        self.Vs[next_idx, next_idx + npoints] = sol.y[0]
+        lastidx += npoints
+
+        # Repeat until 
+        while sol,status == 1:
+            self.Vs = sol.y[0]
+        return sol
+
+#    def solve(self, ts=None):
+#        """Integrate the differential equations of the system.
+#
+#        """
+#        # Simulation times
+#        if ts is None:
+#            self.ts = np.linspace(0, 1000, 1000)
+#        else:
+#            self.ts = ts
+#
+#        y0 = self.V_0
+#        sol = spint.odeint(self._rhs, y0, self.ts)
+#        # solve_ivp returns a lot of extra information about the solutions, but 
+#        # we are only interested in the values of the variables, which are stored
+#        # in sol.y
+#        self.Vs = sol[:,0]
+#
+#        return
+
