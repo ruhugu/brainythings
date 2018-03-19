@@ -364,6 +364,10 @@ class FNNeuron(Neuron):
 class IFlinNeuron(Neuron):
     """Linear integrate-and-fire neuron.
 
+    Sources:
+        http://icwww.epfl.ch/~gerstner/SPNM/node26.html
+        http://www.ugr.es/~jtorres/Tema_4_redes_de_neuronas.pdf (spanish)
+
     """
     def __init__(self, I_ampl=10, V_0=-80, R=0.8, Vthr=-68.5,
                  neurondict=dict()):
