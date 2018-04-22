@@ -7,6 +7,8 @@ from matplotlib import pyplot as plt
 from matplotlib import colors as colors
 #from matplotlib import animation
 
+# TODO: change the methods to stop taking I_ampl as an instance
+# attribute
 
 class Neuron(object):  
     """Base neuron class.
@@ -272,7 +274,8 @@ class FNNeuron(Neuron):
     http://www.scholarpedia.org/article/FitzHugh-Nagumo_model
 
     """
-    def __init__(self, I_ampl=0.85, V_0=-0.7, W_0 =-0.5, a=0.7, b=0.8,
+    # TODO: add description of the parameters
+    def __init__(self, I_ampl=0.85, V_0=-0.7, W_0=-0.5, a=0.7, b=0.8,
                  tau=12.5, neurondict=dict()):
         Neuron.__init__(self, I_ampl=I_ampl, **neurondict)
 
