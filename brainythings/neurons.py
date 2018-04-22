@@ -562,22 +562,40 @@ class LinearIFNeuron(Neuron):
         return output
 
 
-#    def solve(self, ts=None):
-#        """Integrate the differential equations of the system.
-#
-#        """
-#        # Simulation times
-#        if ts is None:
-#            self.ts = np.linspace(0, 1000, 1000)
-#        else:
-#            self.ts = ts
-#
-#        y0 = self.V_0
-#        sol = spint.odeint(self._rhs, y0, self.ts)
-#        # solve_ivp returns a lot of extra information about the solutions, but 
-#        # we are only interested in the values of the variables, which are stored
-#        # in sol.y
-#        self.Vs = sol[:,0]
-#
-#        return
+class McCullochPittsNeuron(object):
+    """McCulloch-Pitts Neuron class.
 
+    See Wikipedia page:
+    https://en.wikipedia.org/wiki/Hopfield_network
+
+    """
+    def __init__(self, V_0, I_thr):
+        """Initialization method.
+
+        Parameters
+        ----------
+            V_0 : int
+                Initial value of the membrane potential.
+                Must be either 0 or 1.
+
+            I_thr : float
+                Current thresold for neuron firing.
+
+        """
+        # Store parameters
+        self.V = V_0
+        self.I_thr = I_thr
+
+    
+    def _evolve_step(self, I):
+        """Evolve one timestep.
+
+        Parameters
+        ----------
+            I : float
+                Current entering the neuron.
+
+        """
+        self.V = int(I > I_thr)
+
+        return
