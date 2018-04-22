@@ -9,6 +9,8 @@ from matplotlib import colors as colors
 
 # TODO: change the methods to stop taking I_ampl as an instance
 # attribute
+# TODO: change V_0 to V. It doesn't make sense to store the initial
+# value, is better to store the present value.
 
 class Neuron(object):  
     """Base neuron class.
