@@ -386,6 +386,7 @@ class FNNeuron(Neuron):
         return Vs
 
 
+class LinearIFNeuron(Neuron):
     """Linear integrate-and-fire neuron.
 
     Sources:
@@ -393,17 +394,61 @@ class FNNeuron(Neuron):
         http://www.ugr.es/~jtorres/Tema_4_redes_de_neuronas.pdf (spanish)
 
     """
-    def __init__(self, I_ampl=10, V_0=-80, R=0.8, Vthr=-68.5,
-                 neurondict=dict()):
+    def __init__(
+            self, I_ampl=10, V_0=-80, R=0.8, V_thr=-68.5, V_fire=20,
+            V_relax=-80, relaxtime=5, firetime=2, neurondict=dict()):
+        """Init method.
+
+        Parameters
+        ----------
+            I_ampl : float
+                External current.
+
+            V_0 : float
+                Initial value of the membrane potential.
+
+            R : float
+                Model parameter (see references).
+                
+            V_thr : float
+                Voltage firing thresold.
+
+            V_fire : float
+                Voltaje firing value.
+
+            v_relax : float
+                Voltage during the relax time after the firing.
+
+            relaxtime : float
+                Relax time after firing
+
+            firetime : float
+                Fire duration.
+
+        """
         Neuron.__init__(self, I_ampl=I_ampl, **neurondict)
 
         # Store initial condition
         self.V_0 = V_0
 
         # Store parameters
-        self.R = R  # kohmn/cm2
-        self.Vthr = Vthr  # Fire threshold
+        self.R = R  # k ohmn/cm2
+        self.V_thr = V_thr  # Fire threshold
+        self.V_fire = V_fire  # Firing voltage
+        self.V_relax = V_relax  # Firing voltage
+        self.relaxtime = relaxtime  # Relax time after firing
+        self.firetime = firetime  # Fire duration
 
+        # Units
+        self.I_unit = "(microA/cm2)"
+        self.time_unit = "(ms)"
+        self.V_unit = "(mV)"
+
+
+    def fire_condition(self, V):
+        """Return True if the fire condition is satisfied.
+
+        """
 
     def V_ddt(self, V, I_ext):
         """Time derivative of the membrane potential.
@@ -413,17 +458,80 @@ class FNNeuron(Neuron):
         return timederivative
 
 
-    def _thresholddiff(self, t, V):
-        """Difference between the membrane potential and the fire threshold.
+    def solve(self, ts=None, timestep=0.1):
+        """Integrate the differential equations of the system.
+    
+        The integration is made using an Euler algorithm and 
+        the method I_ext() is used to modelize the external current.
 
-        This is used as an auxiliary function in the solver to 
-        find when the pulse starts.
+        Parameters
+        ----------
+            ts : array
+                Times were the solution value is stored.
+
+        Returns
+        -------
+            Vs : array
+                Membrane potential at the given times.
 
         """
-        diff = V - self.Vthr
-        return diff
+        # Initialization
+        t_last = 0.  # Time of the last measure
+        V = self.V_0  # Present voltage
 
+        # Create array to store the measured voltages
+        Vs = np.zeros(ts.size, dtype=float)
 
+        # Check the firing condition. 
+        # _neuronstate stores the state of the neuron. 
+        # If it is firing _neuronstate=1, if relaxing it equals 2, else
+        # it is 0.
+        self._neuronstate = int(V > self.V_thr)
+        if self._neuronstate == 1:
+            self._t_endfire = t_last + self.firetime
+
+        for j_measure, t_measure in enumerate(ts):
+            # Calculate the number of steps before the next measure
+            nsteps = int((t_measure - t_last)/timestep)
+            t = t_last
+
+            for j_step in range(nsteps):
+                if self._neuronstate == 0:
+                    # Advance time step
+                    V += self._rhs(t_last, V)*timestep
+
+                    # Check if the firing condition is met
+                    self._neuronstate = int(V > self.V_thr)
+                    if self._neuronstate == 1:
+                        self._t_endfire = t + self.firetime
+
+                # Firing
+                elif self._neuronstate == 1:
+                    V = self.V_fire
+
+                    # Check if the firing has ended
+                    if t > self._t_endfire:
+                        self._neuronstate = 2 
+                        self._t_endrelax = t + self.relaxtime
+                    
+                # Relaxing
+                elif self._neuronstate == 2:
+                    V = self.V_relax
+
+                    # Check if the relaxing time has ended
+                    if t > self._t_endrelax:
+                        self._neuronstate = 0
+
+                # Update time
+                t += timestep
+
+            # Measure
+            Vs[j_measure] = V
+            t_last = t_measure
+
+        return Vs
+
+            
     def _rhs(self, t, y):
         """Right hand side of the system of equations to be solved.
 
@@ -448,47 +556,6 @@ class FNNeuron(Neuron):
         output = self.V_ddt(V, self.I_ext(t))
         return output
 
-    def solve(self, ts=None):
-        """Integrate the differential equations of the system.
-
-        """
-        if ts is None:
-            self.ts = np.linspace(0, 100, 400)
-        else:
-            self.ts = ts
-
-        # Empty array to store the results
-        self.Vs = np.zeros(ts.size)
-
-        # Initial value
-        y0 = np.array((self.V_0,))
-
-        def thresholddiff(t, V):
-            """Difference between the potential and the fire threshold.
-
-            This is used as an auxiliary function in the solver to 
-            find when the pulse starts
-
-            """
-            diff = self.Vthr - V
-            return diff
-        thresholddiff.terminal = True
-
-        sol = spint.solve_ivp(self._rhs, (ts[0], ts[-1]), y0,
-                              events=thresholddiff, dense_output=True)
-
-        # Index in ts of next point to be calculated
-        next_idx = 0
-
-        # Store the calculated points
-        npoints = sol.t.size
-        self.Vs[next_idx, next_idx + npoints] = sol.y[0]
-        lastidx += npoints
-
-        # Repeat until 
-        while sol,status == 1:
-            self.Vs = sol.y[0]
-        return sol
 
 #    def solve(self, ts=None):
 #        """Integrate the differential equations of the system.
