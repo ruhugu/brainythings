@@ -4,7 +4,7 @@ Python implementation of several neuron models. Right now the implemented ones a
 
 ## Required packages
 
-This modules requires both [matplotlib](https://matplotlib.org/) and [numpy](http://www.numpy.org/) to be installed.
+This module requires [matplotlib](https://matplotlib.org/), [scipy](https://www.scipy.org/) and [numpy](http://www.numpy.org/) to be installed.
 
 
 ## Some output examples
