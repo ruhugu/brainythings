@@ -232,6 +232,19 @@ class HHNeuron(Neuron):
     def solve(self, ts=None):
         """Integrate the differential equations of the system.
 
+        The integration is made using an Euler algorithm and 
+        the method I_ext() is used to modelize the external current.
+
+        Parameters
+        ----------
+            ts : array
+                Times were the solution value is stored.
+                
+        Returns
+        -------
+            Vs : array
+                Membrane potential at the given times.
+
         """
         # Simulation times
         if ts is None:
@@ -246,7 +259,7 @@ class HHNeuron(Neuron):
         self.hs = sol[:,2]
         self.ns = sol[:,3]
 
-        return
+        return self.Vs
 
 
 class FNNeuron(Neuron):
@@ -342,6 +355,19 @@ class FNNeuron(Neuron):
     def solve(self, ts=None):
         """Integrate the differential equations of the system.
 
+        The integration is made using an Euler algorithm and 
+        the method I_ext() is used to modelize the external current.
+
+        Parameters
+        ----------
+            ts : array
+                Times were the solution value is stored.
+                
+        Returns
+        -------
+            Vs : array
+                Membrane potential at the given times.
+
         """
         # Simulation times
         if ts is None:
@@ -357,11 +383,9 @@ class FNNeuron(Neuron):
         self.Vs = sol[:,0]
         self.Ws = sol[:,1]
 
-        return
+        return Vs
 
 
-# TODO: RENDIRSE Y APLICAR EULER
-class IFlinNeuron(Neuron):
     """Linear integrate-and-fire neuron.
 
     Sources:
